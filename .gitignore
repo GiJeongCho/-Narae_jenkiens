@@ -39,9 +39,17 @@ Thumbs.db
 *.key
 credentials.json
 
-# ----- 문서 (사용자 요청: .md 파일 무시. README.md 만 예외) -----
+# ----- 문서 -----
+# 기본: .md 무시
 *.md
+# 예외 1) 모든 디렉토리의 README.md 는 살림
 !**/README.md
+# 예외 2) jenkins/docs/ 안 통합 개발 문서는 메인 repo 에 포함
+!docs/
+!docs/**
 
 # ----- streamlit 캐시 -----
 **/.streamlit/secrets.toml
+
+# ----- dev/ 모델 다운로드 완료 마커 (캐시성) -----
+dev/.model_ok_*
