@@ -1,20 +1,20 @@
 [submodule "dev/LLM"]
 	path = dev/LLM
-	url = ssh://git@git.biz.ppsystem.co.kr:10022/narea/llm.git
+	url = https://github.com/GiJeongCho/gemma31b_service.git
 	branch = main
 [submodule "dev/stt"]
 	path = dev/stt
-	url = ssh://git@git.biz.ppsystem.co.kr:10022/narea/stt.git
+	url = https://github.com/GiJeongCho/whisperX.git
 	branch = main
 [submodule "dev/speech_recognize"]
 	path = dev/speech_recognize
-	url = ssh://git@git.biz.ppsystem.co.kr:10022/narea/speech_recognize.git
+	url = https://github.com/GiJeongCho/speech_recognize.git
 	branch = main
 [submodule "dev/ocr"]
 	path = dev/ocr
-	url = ssh://git@git.biz.ppsystem.co.kr:10022/narea/ocr.git
+	url = https://github.com/GiJeongCho/OCR.git
 	branch = main
 [submodule "dev/embedding"]
 	path = dev/embedding
-	url = ssh://git@git.biz.ppsystem.co.kr:10022/narea/embedding.git
+	url = https://github.com/GiJeongCho/embedding.git
 	branch = main
