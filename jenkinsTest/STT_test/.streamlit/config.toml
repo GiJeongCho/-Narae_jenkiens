@@ -1,0 +1,20 @@
+[server]
+port = 8052
+address = "0.0.0.0"
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+maxUploadSize = 500
+# 외부 NAT 환경에서 hot-reload 시 stale chunk 로딩으로
+# "Failed to fetch dynamically imported module" 발생을 줄이기 위해 watcher 비활성화.
+fileWatcherType = "none"
+runOnSave = false
+
+[browser]
+gatherUsageStats = false
+# 외부에서 접속하는 도메인을 명시해야 정적 청크/WebSocket URL이
+# 동일 origin 으로 발급되어 dynamic import 실패가 감소한다.
+# 내부(localhost)에서 접속할 때는 클라이언트 측 base URL 만 영향받고
+# 서버는 0.0.0.0:8052 로 그대로 listen 한다.
+serverAddress = "ppsystem.kro.kr"
+serverPort = 8052

@@ -1,0 +1,19 @@
+# UI
+# streamlit 1.57.x 는 외부 도메인(reverse-proxy / NAT) 환경에서
+# "Failed to fetch dynamically imported module" 청크 로드 실패가 보고됨.
+# 1.50.x 계열로 핀하여 안정화.
+streamlit>=1.50.0,<1.55.0
+
+# HTTP / Data
+requests>=2.32.0
+pandas>=2.0.0
+numpy>=1.26.0
+
+# 시각화
+plotly>=5.20.0
+
+# 오디오 디코딩(파형 시각화용). ffmpeg 백엔드 사용 → m4a/mp3/flac 등 모두 지원.
+pydub>=0.25.1
+# pydub 은 표준 `audioop` 에 의존하지만 Python 3.13 에서는 제거됨(PEP 594).
+# `audioop-lts` 백포트로 대체.
+audioop-lts>=0.2.1; python_version >= "3.13"

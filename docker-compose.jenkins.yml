@@ -1,0 +1,36 @@
+version: "3.9"
+
+# ============================================================
+# Jenkins - 비즈니스 서비스와 완전 분리된 독립 컨테이너
+#
+# 비즈니스 도커(dev/stg/prd)와 별도의 compose 스택.
+# Docker socket을 마운트해서 호스트의 docker를 제어합니다.
+#
+# Usage:
+#   docker compose -f docker-compose.jenkins.yml up -d
+#   docker compose -f docker-compose.jenkins.yml down
+# ============================================================
+
+volumes:
+  jenkins_home: {}
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: jenkins
+    user: root
+    ports:
+      - "8888:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /usr/bin/docker:/usr/bin/docker
+      - /usr/libexec/docker/cli-plugins:/usr/libexec/docker/cli-plugins:ro
+      - /home/pps-nipa/jenkins:/workspace
+      - /opt/llm-stack:/opt/llm-stack
+      - /home/pps-nipa/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
+      - /home/pps-nipa/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+    environment:
+      JAVA_OPTS: "-Xmx1g -Djenkins.install.runSetupWizard=true"
+    restart: unless-stopped

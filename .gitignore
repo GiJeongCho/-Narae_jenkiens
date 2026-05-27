@@ -1,0 +1,47 @@
+# ============================================================
+#  ~/jenkins  최상위 .gitignore
+#  - dev/<module>/  는 submodule(외부 repo)이라 부모 repo에는
+#    포인터만 들어간다. 그래서 여기서는 메인 repo의 "비-소스" 파일만 차단.
+# ============================================================
+
+# ----- Python / venv -----
+**/.venv/
+**/venv/
+**/env/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# ----- 실행 로그 / 임시 -----
+*.log
+nohup.out
+*.tmp
+*.swp
+*.bak
+
+# ----- OS / Editor -----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ----- 환경 변수 / 시크릿 -----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# ----- 문서 (사용자 요청: .md 파일 무시. README.md 만 예외) -----
+*.md
+!**/README.md
+
+# ----- streamlit 캐시 -----
+**/.streamlit/secrets.toml
