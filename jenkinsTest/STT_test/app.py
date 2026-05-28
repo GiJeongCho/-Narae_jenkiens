@@ -182,6 +182,52 @@ SPEAKER_PALETTE = [
     "#00B8D9", "#F783AC", "#26C6DA", "#FF7849", "#7E57C2",
 ]
 
+# 화자 식별이 안 된 / 미등록 직원으로 분류된 라벨들.
+# 비교는 소문자, strip 후 수행한다.
+UNKNOWN_LABELS = {"", "-", "unknown", "none", "null", "no_match", "no-match", "unmatched"}
+
+
+def is_unknown_label(label: Any) -> bool:
+    """matched_speaker 가 '미상' 류인지."""
+    if label is None:
+        return True
+    try:
+        if isinstance(label, float) and pd.isna(label):
+            return True
+    except Exception:
+        pass
+    return str(label).strip().lower() in UNKNOWN_LABELS
+
+
+def merge_consecutive_segments(
+    segments: list[dict[str, Any]],
+    speaker_field: str,
+    gap_tol: float = 0.6,
+) -> list[dict[str, Any]]:
+    """같은 화자의 인접 segment 를 하나로 합친다.
+    (gap_tol 초 이하의 짧은 침묵은 같은 발화로 묶음)
+    """
+    if not segments:
+        return []
+    sorted_segs = sorted(segments, key=lambda s: float(s.get("start", 0.0)))
+    merged: list[dict[str, Any]] = []
+    cur = dict(sorted_segs[0])
+    cur["start"] = float(cur.get("start", 0.0))
+    cur["end"] = float(cur.get("end", 0.0))
+    for s in sorted_segs[1:]:
+        st_ = float(s.get("start", 0.0))
+        en_ = float(s.get("end", 0.0))
+        same_spk = str(s.get(speaker_field, "")) == str(cur.get(speaker_field, ""))
+        if same_spk and st_ - cur["end"] <= gap_tol:
+            cur["end"] = max(cur["end"], en_)
+        else:
+            merged.append(cur)
+            cur = dict(s)
+            cur["start"] = st_
+            cur["end"] = en_
+    merged.append(cur)
+    return merged
+
 
 def speaker_color(label: str, order: list[str] | None = None) -> str:
     """화자 라벨에 안정적으로 색을 할당."""
@@ -231,10 +277,19 @@ def render_waveform(
     speaker_field: str = "speaker",
     height: int = 220,
     title: str | None = None,
+    hide_unknown: bool = False,
+    min_label_sec: float = 1.8,
+    merge_gap: float = 0.6,
 ) -> None:
     """
     오디오 파형을 plotly 로 렌더링. segments 가 주어지면 각 발화 구간을
-    화자별 색으로 배경에 음영 처리한다.
+    화자별 색으로 배경에 음영 처리하고, 화자 이름을 라벨로 표시한다.
+
+    - 같은 화자의 인접 segment 는 merge_gap 초 이하 침묵까지 하나로 합쳐
+      구간을 더 길게 만들어 라벨 겹침을 줄인다.
+    - min_label_sec 초 미만 구간은 라벨 텍스트를 생략(음영만 표시).
+    - hide_unknown=True 면 unknown 류 라벨은 음영도 라벨도 생략.
+    - 화자 라벨은 위/아래로 교대 배치하여 겹침을 더 줄인다.
     """
     try:
         samples, sr, duration = decode_audio(audio_bytes, ext_hint)
@@ -266,7 +321,7 @@ def render_waveform(
     )
 
     if segments:
-        labels = sorted({str(s.get(speaker_field, "-")) for s in segments})
+        clean: list[dict[str, Any]] = []
         for s in segments:
             try:
                 x0 = float(s.get("start", 0.0))
@@ -275,21 +330,52 @@ def render_waveform(
                 continue
             if x1 <= x0:
                 continue
+            label = s.get(speaker_field, "-")
+            if hide_unknown and is_unknown_label(label):
+                continue
+            d = dict(s)
+            d["start"] = x0
+            d["end"] = x1
+            d[speaker_field] = str(label)
+            clean.append(d)
+
+        merged = merge_consecutive_segments(clean, speaker_field, gap_tol=merge_gap)
+        labels = sorted({str(s.get(speaker_field, "-")) for s in merged})
+
+        annotations: list[dict[str, Any]] = []
+        for i, s in enumerate(merged):
+            x0, x1 = s["start"], s["end"]
             label = str(s.get(speaker_field, "-"))
             color = speaker_color(label, labels)
             fig.add_vrect(
                 x0=x0, x1=x1,
                 fillcolor=color, opacity=0.18,
                 line_width=0, layer="below",
-                annotation_text=label,
-                annotation_position="top left",
-                annotation=dict(font_size=10, font_color=color),
             )
+            if (x1 - x0) >= float(min_label_sec):
+                y_anchor = 1.0 if (i % 2 == 0) else 0.0
+                yshift = 6 if (i % 2 == 0) else -16
+                annotations.append(dict(
+                    x=(x0 + x1) / 2,
+                    xref="x",
+                    y=y_anchor,
+                    yref="paper",
+                    yshift=yshift,
+                    text=f"<b>{label}</b>",
+                    showarrow=False,
+                    font=dict(size=11, color=color),
+                    bgcolor="rgba(255,255,255,0.85)",
+                    bordercolor=color,
+                    borderwidth=1,
+                    borderpad=2,
+                ))
+        if annotations:
+            fig.update_layout(annotations=annotations)
 
     fig.update_layout(
         title=title,
         height=height,
-        margin=dict(l=10, r=10, t=30 if title else 10, b=10),
+        margin=dict(l=10, r=10, t=(40 if title else 22), b=10),
         xaxis=dict(title="time (s)", rangeslider=dict(visible=True, thickness=0.05)),
         yaxis=dict(title="amplitude", range=[-1.05, 1.05], showgrid=False),
         showlegend=False,
@@ -309,24 +395,52 @@ def render_speaker_timeline(
     speaker_col: str = "matched_speaker",
     score_col: str | None = "score",
     title: str = "발화 타임라인",
+    hide_unknown: bool = True,
+    merge_gap: float = 0.6,
 ) -> None:
-    """각 segment 를 (start, end, speaker) Gantt 형태로 표시."""
+    """
+    각 segment 를 (start, end, speaker) Gantt 형태로 표시.
+    - hide_unknown=True 면 미상/미등록 라벨은 표시하지 않음.
+    - 같은 화자의 인접 segment 는 merge_gap 초 이하 침묵까지 병합하여
+      bar 가 잘게 쪼개지지 않게 한다(이름과 구간 겹침 완화).
+    """
     if df.empty:
         st.info("표시할 segment 가 없습니다.")
         return
 
-    plot_df = df.copy()
+    work = df.copy()
+    work["speaker_label"] = work[speaker_col].astype(str)
+
+    if hide_unknown:
+        mask_unknown = work["speaker_label"].apply(is_unknown_label)
+        n_dropped = int(mask_unknown.sum())
+        work = work[~mask_unknown]
+        if n_dropped:
+            st.caption(f"미상(unknown) {n_dropped}개 segment 는 타임라인에서 제외했습니다.")
+
+    if work.empty:
+        st.info("등록 직원과 매칭된 segment 가 없습니다.")
+        return
+
+    work["start_s"] = work["start"].astype(float)
+    work["end_s"] = work["end"].astype(float)
+
+    # 동일 화자 인접 segment 병합
+    segs_in = work.to_dict("records")
+    for s in segs_in:
+        s["start"] = s["start_s"]
+        s["end"] = s["end_s"]
+    merged = merge_consecutive_segments(segs_in, "speaker_label", gap_tol=merge_gap)
+
+    plot_df = pd.DataFrame(merged)
     plot_df["start_s"] = plot_df["start"].astype(float)
     plot_df["end_s"] = plot_df["end"].astype(float)
     plot_df["duration"] = (plot_df["end_s"] - plot_df["start_s"]).clip(lower=0.01)
-    plot_df["speaker_label"] = plot_df[speaker_col].astype(str)
 
     speakers = sorted(plot_df["speaker_label"].unique())
     color_map = {sp: speaker_color(sp, speakers) for sp in speakers}
 
     hover = ["start_s", "end_s", "duration"]
-    if "text" in plot_df.columns:
-        hover.append("text")
     if score_col and score_col in plot_df.columns:
         hover.append(score_col)
 
@@ -341,14 +455,22 @@ def render_speaker_timeline(
         hover_data=hover,
         title=title,
     )
+    # 짧은 bar 위에 화자 이름이 겹쳐서 잘리는 걸 방지하기 위해
+    # bar 내부에 텍스트를 표시하지 않음(y축 카테고리 라벨로 충분).
+    fig.update_traces(text=None, textposition="none")
     fig.update_layout(
-        height=max(180, 50 + 36 * len(speakers)),
-        margin=dict(l=10, r=10, t=40, b=10),
+        height=max(220, 70 + 44 * len(speakers)),
+        margin=dict(l=10, r=10, t=(50 if title else 18), b=10),
         xaxis=dict(title="time (s)"),
-        yaxis=dict(title="화자", categoryorder="category ascending"),
+        yaxis=dict(
+            title="",
+            categoryorder="category ascending",
+            tickfont=dict(size=12),
+            automargin=True,
+        ),
         showlegend=False,
         template="plotly_white",
-        bargap=0.35,
+        bargap=0.45,
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -891,7 +1013,8 @@ def main() -> None:
                     ext_hint=os.path.splitext(sr_audio_name)[1],
                     segments=segs_for_wave,
                     speaker_field="speaker",
-                    height=260,
+                    height=280,
+                    hide_unknown=True,
                 )
 
             # 타임라인
