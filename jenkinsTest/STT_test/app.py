@@ -574,6 +574,8 @@ def download_link(
     st.download_button 은 일부 streamlit 버전 + 외부 도메인 환경에서
     "Failed to fetch dynamically imported module ... DownloadButton...js" 가 발생한다.
     동일 기능을 base64 data-URI HTML 링크로 제공해 청크 의존을 제거한다.
+
+    UI 톤: 큼직한 primary 버튼 모양으로 표시해 비숙련 사용자도 쉽게 인지.
     """
     if isinstance(data, str):
         data = data.encode("utf-8")
@@ -582,12 +584,128 @@ def download_link(
     st.markdown(
         f'''
         <a href="{href}" download="{filename}"
-           style="display:inline-block;padding:0.45rem 0.9rem;border-radius:0.5rem;
-                  background:#0E1117;color:#FAFAFA;text-decoration:none;
-                  border:1px solid #4C9AFF;font-size:0.9rem;">
+           style="display:inline-flex;align-items:center;justify-content:center;
+                  gap:0.5rem;padding:0.95rem 1.4rem;border-radius:12px;
+                  background:linear-gradient(135deg,#4C9AFF 0%,#2F80ED 100%);
+                  color:#FFFFFF;text-decoration:none;font-weight:700;
+                  font-size:1.05rem;min-width:240px;width:100%;text-align:center;
+                  box-shadow:0 4px 14px rgba(47,128,237,0.30);margin:0.4rem 0;">
           {label}
         </a>
         ''',
+        unsafe_allow_html=True,
+    )
+
+
+# ==========================================
+# UI 스타일 (비숙련 사용자용: 버튼/탭/폰트 키우기)
+# ==========================================
+def inject_css() -> None:
+    st.markdown(
+        """
+        <style>
+        /* === 버튼 크게 === */
+        .stButton > button, .stDownloadButton > button {
+            font-size: 1.15rem !important;
+            font-weight: 700 !important;
+            padding: 0.85rem 1.3rem !important;
+            border-radius: 12px !important;
+            min-height: 56px !important;
+            width: 100%;
+        }
+        .stButton > button[kind="primary"] {
+            background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%) !important;
+            color: #FFFFFF !important;
+            border: 0 !important;
+            box-shadow: 0 6px 18px rgba(255, 107, 107, 0.35);
+        }
+        .stButton > button[kind="primary"]:hover {
+            filter: brightness(1.05);
+            transform: translateY(-1px);
+        }
+        .stButton > button[disabled] {
+            opacity: 0.55 !important;
+        }
+
+        /* === 탭 크게 === */
+        .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+        .stTabs [data-baseweb="tab"] {
+            font-size: 1.05rem !important;
+            font-weight: 700 !important;
+            padding: 0.85rem 1.4rem !important;
+            border-radius: 12px 12px 0 0 !important;
+        }
+        .stTabs [aria-selected="true"] {
+            background: #EEF4FF !important;
+            color: #1E3A8A !important;
+        }
+
+        /* === 라디오/셀렉트/슬라이더 라벨 크게 === */
+        .stRadio label, .stSelectbox label, .stTextInput label,
+        .stFileUploader label, .stSlider label, .stNumberInput label,
+        .stCheckbox label {
+            font-size: 1.0rem !important;
+            font-weight: 600 !important;
+        }
+        .stRadio [role="radiogroup"] label {
+            font-size: 1.05rem !important;
+        }
+
+        /* === 파일 업로더 강조 === */
+        [data-testid="stFileUploaderDropzone"] {
+            padding: 2.2rem 1rem !important;
+            border-radius: 16px !important;
+            border: 2px dashed #4C9AFF !important;
+            background: #F4F8FF !important;
+        }
+        [data-testid="stFileUploaderDropzone"] * { font-size: 1.0rem !important; }
+
+        /* === Metric 크게 === */
+        [data-testid="stMetricValue"] { font-size: 2.1rem !important; }
+        [data-testid="stMetricLabel"] { font-size: 1.0rem !important; }
+
+        /* === Alert/Info 강조 === */
+        .stAlert { border-radius: 12px; font-size: 1.0rem; }
+
+        /* === 단계 카드 (markdown 안에서 사용) === */
+        .step-card {
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-left: 6px solid #4C9AFF;
+            border-radius: 12px;
+            padding: 1.0rem 1.2rem;
+            margin: 0.6rem 0 1.0rem 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        .step-card h3 { margin: 0 0 0.3rem 0; font-size: 1.25rem; }
+        .step-card p  { margin: 0; color: #475569; font-size: 0.98rem; }
+
+        /* === 안내 배너 === */
+        .hero {
+            background: linear-gradient(135deg,#EEF4FF 0%,#FFF1EC 100%);
+            border-radius: 16px;
+            padding: 1.2rem 1.4rem;
+            margin: 0.4rem 0 1.2rem 0;
+            font-size: 1.05rem;
+            color: #1E293B;
+            line-height: 1.55;
+        }
+        .hero b { color: #1D4ED8; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def step_card(num: str, title: str, desc: str) -> None:
+    """1단계/2단계… 같은 큰 단계 헤더 카드."""
+    st.markdown(
+        f"""
+        <div class="step-card">
+          <h3>{num} {title}</h3>
+          <p>{desc}</p>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -686,71 +804,230 @@ def employee_summary() -> pd.DataFrame:
 # ==========================================
 # 앱
 # ==========================================
+def _run_stt_job(
+    stt_base: str,
+    audio_name: str,
+    audio_bytes: bytes,
+    *,
+    language: str = "ko",
+    diarize: bool = True,
+    batch_size: int = 16,
+    beam_size: int = 5,
+    min_sp: int | None = None,
+    max_sp: int | None = None,
+    dev_mode: bool = False,
+) -> dict[str, Any] | None:
+    """STT 1회 실행. 성공 시 session_state 에 저장하고 결과 dict 반환."""
+    try:
+        with st.spinner("🎧 음성을 글로 옮기는 중..."):
+            job_id = stt_submit(
+                stt_base, audio_name, audio_bytes,
+                language=language, align=True, diarize=diarize,
+                min_speakers=min_sp or None, max_speakers=max_sp or None,
+                batch_size=int(batch_size), beam_size=int(beam_size),
+            )
+
+        status_box = st.empty()
+        progress_bar = st.progress(0, text="시작 중...")
+
+        def cb(info: dict[str, Any]) -> None:
+            pct, step = normalize_progress(info)
+            progress_bar.progress(pct, text=f"진행률 {pct}% — {step}")
+            if dev_mode:
+                status_box.caption(f"job_id={job_id} · status={info.get('status')} · {pct}%")
+
+        result = stt_poll(stt_base, job_id, progress_cb=cb)
+        progress_bar.empty()
+        status_box.empty()
+
+        if result.get("status") != "completed":
+            st.error(f"❌ STT 실패: {result.get('status')}")
+            if dev_mode:
+                st.json(result)
+            return None
+
+        st.session_state["stt_result"] = result
+        st.session_state["stt_audio_name"] = audio_name
+        st.session_state["stt_audio_bytes"] = audio_bytes
+        st.success(
+            f"✅ 음성→글 완료 · 약 "
+            f"{result.get('result', {}).get('processing_time', 0):.1f}초 소요 · "
+            f"{len(extract_segments(result))}개 발화 구간"
+        )
+        return result
+    except requests.HTTPError as e:
+        st.error(f"서버 오류 (HTTP {e.response.status_code}): {e.response.text}")
+    except requests.RequestException as e:
+        st.error(f"네트워크 오류: {e}")
+    except TimeoutError as e:
+        st.error(str(e))
+    return None
+
+
+def _run_sr_job(
+    sr_base: str,
+    audio_name: str,
+    audio_bytes: bytes,
+    stt_result: dict[str, Any],
+    *,
+    threshold: float = 0.2,
+    dev_mode: bool = False,
+) -> dict[str, Any] | None:
+    """화자 식별 1회 실행. 성공 시 session_state 에 저장하고 결과 dict 반환."""
+    try:
+        with st.spinner("🧑‍🤝‍🧑 누가 말했는지 분석 중..."):
+            job_id = sr_submit(
+                sr_base, audio_name, audio_bytes, stt_result, threshold=threshold,
+            )
+
+        status_box = st.empty()
+        progress_bar = st.progress(0, text="시작 중...")
+
+        def cb(info: dict[str, Any]) -> None:
+            pct, step = normalize_progress(info)
+            progress_bar.progress(pct, text=f"진행률 {pct}% — {step}")
+            if dev_mode:
+                status_box.caption(f"job_id={job_id} · status={info.get('status')} · {pct}%")
+
+        result = sr_poll(sr_base, job_id, progress_cb=cb)
+        progress_bar.empty()
+        status_box.empty()
+
+        if result.get("status") != "completed":
+            st.error(f"❌ 화자 식별 실패: {result.get('status')}")
+            if dev_mode:
+                st.json(result)
+            return None
+
+        st.session_state["sr_result"] = result
+        st.success("✅ 누가 말했는지 분석 완료")
+        return result
+    except requests.HTTPError as e:
+        st.error(f"서버 오류 (HTTP {e.response.status_code}): {e.response.text}")
+    except requests.RequestException as e:
+        st.error(f"네트워크 오류: {e}")
+    except TimeoutError as e:
+        st.error(str(e))
+    return None
+
+
+def _run_full_pipeline(
+    stt_base: str,
+    sr_base: str,
+    audio_name: str,
+    audio_bytes: bytes,
+    dev_mode: bool = False,
+) -> None:
+    """'한 번에 분석' 버튼: STT → 화자 식별을 자동으로 이어서 실행."""
+    st.markdown("#### ① 음성을 글로 옮기는 중...")
+    stt_result = _run_stt_job(stt_base, audio_name, audio_bytes, dev_mode=dev_mode)
+    if stt_result is None:
+        return
+    st.markdown("#### ② 누가 말했는지 찾는 중...")
+    _run_sr_job(sr_base, audio_name, audio_bytes, stt_result, dev_mode=dev_mode)
+    st.balloons()
+
+
 def main() -> None:
-    st.set_page_config(page_title="STT + Speaker ID Demo", page_icon="🎙️", layout="wide")
-    st.title("🎙️ STT + 화자 식별 데모")
-    st.caption(
-        "Whisper로 음성을 텍스트화하고, ERes2Net으로 각 발화 구간을 사내 직원과 매칭합니다. "
-        "두 단계를 각각 따로 실행해볼 수 있습니다."
+    st.set_page_config(
+        page_title="회의 녹음 분석기",
+        page_icon="🎙️",
+        layout="wide",
+    )
+    inject_css()
+
+    st.title("🎙️ 회의 녹음 분석기")
+    st.markdown(
+        """
+        <div class="hero">
+          녹음 파일을 올리시면 <b>① 대화 내용을 글로 옮겨</b> 드리고,
+          <b>② 누가 말했는지(직원 이름)</b> 까지 자동으로 알려드립니다.<br/>
+          아래 <b>1단계 → 2단계</b> 순서대로 따라하시면 됩니다.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    # ---------- Sidebar ----------
+    # ---------- Sidebar (도움말 위주, 기술 설정은 expander로) ----------
     with st.sidebar:
-        st.header("⚙️ 서버 설정")
-
-        st.markdown("**STT (Whisper)**")
-        stt_preset = st.selectbox(
-            "STT 프리셋",
-            list(STT_PRESETS.keys()),
-            index=0,
-            label_visibility="collapsed",
+        st.markdown("### 📘 사용법 (3줄 요약)")
+        st.markdown(
+            """
+            1. **녹음 파일을 올린다** (또는 예시 파일을 고른다)
+            2. **'한 번에 분석' 버튼**을 누른다
+            3. 결과 표 / 타임라인을 확인하고, 필요하면 **다운로드**
+            """
         )
-        stt_base = st.text_input(
-            "STT Base URL", value=STT_PRESETS[stt_preset], key="stt_base"
-        ).rstrip("/")
-
-        st.markdown("**Speech Recognize (직원 매칭)**")
-        sr_preset = st.selectbox(
-            "SR 프리셋",
-            list(SR_PRESETS.keys()),
-            index=0,
-            label_visibility="collapsed",
-        )
-        sr_base = st.text_input(
-            "Speech Recognize Base URL", value=SR_PRESETS[sr_preset], key="sr_base"
-        ).rstrip("/")
-
-        if st.button("두 서버 헬스 체크", use_container_width=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                ok, info = stt_health(stt_base)
-                st.markdown("**STT**")
-                st.success("OK") if ok else st.error("DOWN")
-                st.json(info if ok else {"error": info})
-            with c2:
-                ok, info = sr_health(sr_base)
-                st.markdown("**Speech Recognize**")
-                st.success("OK") if ok else st.error("DOWN")
-                st.json(info if ok else {"error": info})
 
         st.divider()
-        st.subheader("등록된 직원")
+        st.markdown("### 👥 등록된 직원")
         emp_df = employee_summary()
         if emp_df.empty:
-            st.warning(f"디렉토리를 찾을 수 없습니다.\n`{EMPLOYEE_DIR}`")
+            st.warning(f"등록 폴더가 없습니다.\n`{EMPLOYEE_DIR}`")
         else:
             st.dataframe(emp_df, hide_index=True, use_container_width=True)
-            st.caption(f"총 {len(emp_df)}명 / 경로 `{EMPLOYEE_DIR}`")
+            st.caption(f"총 {len(emp_df)}명")
 
-    # ---------- 공통 오디오 소스 ----------
-    st.subheader("🎵 분석할 오디오")
+        st.divider()
+        dev_mode = st.toggle(
+            "🛠️ 개발자 모드",
+            value=False,
+            help="끄면 더 단순한 화면이 됩니다. 켜면 Raw JSON 탭과 상세 진행 로그가 표시됩니다.",
+            key="dev_mode",
+        )
+
+        with st.expander("⚙️ 관리자 설정 (서버 주소)", expanded=False):
+            st.caption("서버를 옮기지 않았다면 그대로 두시면 됩니다.")
+            st.markdown("**STT (음성→텍스트)**")
+            stt_preset = st.selectbox(
+                "STT 프리셋",
+                list(STT_PRESETS.keys()),
+                index=0,
+                label_visibility="collapsed",
+            )
+            stt_base = st.text_input(
+                "STT Base URL", value=STT_PRESETS[stt_preset], key="stt_base"
+            ).rstrip("/")
+
+            st.markdown("**화자 식별 (누가 말했는지)**")
+            sr_preset = st.selectbox(
+                "SR 프리셋",
+                list(SR_PRESETS.keys()),
+                index=0,
+                label_visibility="collapsed",
+            )
+            sr_base = st.text_input(
+                "Speech Recognize Base URL", value=SR_PRESETS[sr_preset], key="sr_base"
+            ).rstrip("/")
+
+            if st.button("🩺 서버 상태 확인", use_container_width=True, key="health_btn"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    ok, info = stt_health(stt_base)
+                    st.markdown("**STT**")
+                    st.success("정상") if ok else st.error("연결 실패")
+                    if dev_mode:
+                        st.json(info if ok else {"error": info})
+                with c2:
+                    ok, info = sr_health(sr_base)
+                    st.markdown("**화자 식별**")
+                    st.success("정상") if ok else st.error("연결 실패")
+                    if dev_mode:
+                        st.json(info if ok else {"error": info})
+
+    # ---------- 1단계: 오디오 선택 ----------
+    step_card(
+        "1단계",
+        "🎵 분석할 녹음 파일 선택",
+        "회의/통화 녹음 파일을 올리거나, 미리 준비된 예시 파일을 골라보세요.",
+    )
+
     examples = list_examples()
-
-    src_options = ["직접 업로드"]
+    src_options = ["📤 내 파일 올리기"]
     if examples:
-        src_options.append(f"예시 파일에서 선택 ({len(examples)}개)")
+        src_options.append(f"📂 예시 파일에서 고르기 ({len(examples)}개)")
     src_mode = st.radio(
-        "소스",
+        "오디오 소스 선택",
         src_options,
         horizontal=True,
         label_visibility="collapsed",
@@ -760,9 +1037,9 @@ def main() -> None:
     audio_bytes: bytes | None = None
     audio_mime: str = "audio/wav"
 
-    if src_mode == "직접 업로드":
+    if src_mode.startswith("📤"):
         uploaded = st.file_uploader(
-            "WAV/MP3/M4A/FLAC/OGG (회의 녹음 등)",
+            "👉 여기에 녹음 파일을 끌어다 놓거나 클릭해서 선택하세요 (WAV / MP3 / M4A / FLAC / OGG)",
             type=["wav", "mp3", "m4a", "flac", "ogg", "aac", "webm"],
             accept_multiple_files=False,
         )
@@ -772,7 +1049,6 @@ def main() -> None:
             audio_mime = uploaded.type or "audio/wav"
     else:
         picked = st.selectbox("예시 파일", examples, index=0)
-        st.caption(f"📁 `{EXAMPLE_DIR}/{picked}`")
         try:
             audio_name, audio_bytes, audio_mime = load_example(picked)
         except OSError as e:
@@ -780,89 +1056,86 @@ def main() -> None:
 
     if audio_bytes is not None:
         size_mb = len(audio_bytes) / (1024 * 1024)
-        st.caption(f"🎧 `{audio_name}` · {size_mb:.2f} MB · `{audio_mime}`")
+        st.success(f"✅ **{audio_name}** ({size_mb:.2f} MB) 준비 완료. 아래에서 들어보고, 2단계로 진행하세요.")
         st.audio(audio_bytes, format=audio_mime)
-        with st.expander("🌊 파형 미리보기", expanded=True):
+        with st.expander("🌊 파형 미리보기", expanded=False):
             ext_hint = os.path.splitext(audio_name or "")[1]
             render_waveform(audio_bytes, ext_hint=ext_hint, height=200)
+    else:
+        st.info("👆 먼저 녹음 파일을 선택하면 다음 단계가 활성화됩니다.")
 
-    # ---------- 탭 ----------
-    tab_stt, tab_sr, tab_raw = st.tabs(
-        ["1️⃣ STT (Whisper)", "2️⃣ 화자 식별 (직원 매칭)", "🧾 Raw JSON"]
+    # ---------- 2단계: 한 번에 분석 ----------
+    step_card(
+        "2단계",
+        "▶️ 한 번에 분석하기",
+        "버튼 한 번이면 ① 음성 → 텍스트, ② 누가 말했는지 두 작업을 자동으로 수행합니다.",
     )
+
+    run_all = st.button(
+        "🚀  한 번에 분석 시작 (말 → 글 + 누가 말했는지)",
+        type="primary",
+        disabled=audio_bytes is None,
+        key="run_all",
+        help="STT(음성→텍스트)와 화자 식별을 자동으로 이어서 실행합니다.",
+    )
+    if run_all and audio_bytes is not None and audio_name is not None:
+        _run_full_pipeline(stt_base, sr_base, audio_name, audio_bytes, dev_mode)
+
+    # ---------- 결과 탭 ----------
+    st.markdown("### 📑 결과 보기")
+    st.caption("두 작업을 따로 다시 실행하고 싶다면 각 탭에서 개별 실행할 수도 있습니다.")
+    tab_labels = [
+        "📝 1) 말 → 글  (음성 → 텍스트)",
+        "👤 2) 누가 말했는지  (직원 매칭)",
+    ]
+    if dev_mode:
+        tab_labels.append("🛠️ Raw JSON (개발자용)")
+        tab_stt, tab_sr, tab_raw = st.tabs(tab_labels)
+    else:
+        tab_stt, tab_sr = st.tabs(tab_labels)
+        tab_raw = None
 
     # ===== 1) STT =====
     with tab_stt:
         st.markdown(
-            "음성을 텍스트로 변환합니다. 화자 분리(diarization)가 활성된 모델이라면 "
-            "`SPEAKER_00`, `SPEAKER_01` 같은 라벨이 함께 표시됩니다."
+            "녹음에서 사람의 말을 **그대로 글자로** 옮깁니다. "
+            "회의가 길어도 자동으로 *시간대별 발화 구간*으로 나누어 보여드려요."
         )
-        col_opt1, col_opt2, col_opt3, col_opt4, col_opt5, col_opt6 = st.columns(6)
-        language = col_opt1.selectbox("언어", ["ko", "en", "ja", "zh"], index=0)
-        diarize = col_opt2.checkbox(
-            "화자 분리(diarize)", value=True,
-            help="STT 컨테이너의 pyannote 모델이 로드되어 있어야 작동",
-        )
-        batch = col_opt3.number_input(
-            "batch_size", min_value=1, max_value=64, value=16,
-            help="WhisperX 기본 16. OOM 발생 시 4~8로 낮추기.",
-        )
-        beam = col_opt4.number_input(
-            "beam_size", min_value=1, max_value=20, value=5,
-            help="빔 탐색 폭. WhisperX 기본 5.",
-        )
-        min_sp = col_opt5.number_input("min_speakers", min_value=0, max_value=20, value=0)
-        max_sp = col_opt6.number_input("max_speakers", min_value=0, max_value=20, value=0)
+
+        with st.expander("⚙️ 고급 옵션 (대부분 기본값을 그대로 두셔도 됩니다)", expanded=False):
+            col_opt1, col_opt2, col_opt3, col_opt4, col_opt5, col_opt6 = st.columns(6)
+            language = col_opt1.selectbox(
+                "언어", ["ko", "en", "ja", "zh"], index=0,
+                help="ko=한국어, en=영어, ja=일본어, zh=중국어",
+            )
+            diarize = col_opt2.checkbox(
+                "화자 분리", value=True,
+                help="여러 명이 말하는 녹음에서 각자를 SPEAKER_00, SPEAKER_01… 로 나눠줍니다.",
+            )
+            batch = col_opt3.number_input(
+                "batch_size", min_value=1, max_value=64, value=16,
+                help="기본 16. 메모리 부족 시 4~8로 낮추세요.",
+            )
+            beam = col_opt4.number_input(
+                "beam_size", min_value=1, max_value=20, value=5,
+                help="기본 5. 높일수록 정확하지만 느려집니다.",
+            )
+            min_sp = col_opt5.number_input("최소 화자 수", min_value=0, max_value=20, value=0)
+            max_sp = col_opt6.number_input("최대 화자 수", min_value=0, max_value=20, value=0)
 
         run_stt = st.button(
-            "🚀 STT 실행", type="primary",
+            "📝  말 → 글로 옮기기 시작",
+            type="primary",
             disabled=audio_bytes is None, key="run_stt",
         )
         if run_stt and audio_bytes is not None and audio_name is not None:
-            try:
-                with st.spinner("STT 요청 제출 중..."):
-                    job_id = stt_submit(
-                        stt_base,
-                        audio_name,
-                        audio_bytes,
-                        language=language,
-                        align=True,
-                        diarize=diarize,
-                        min_speakers=min_sp or None,
-                        max_speakers=max_sp or None,
-                        batch_size=int(batch),
-                        beam_size=int(beam),
-                    )
-
-                status_box = st.empty()
-                progress_bar = st.progress(0, text=f"job_id={job_id}")
-
-                def cb(info: dict[str, Any]) -> None:
-                    pct, step = normalize_progress(info)
-                    progress_bar.progress(pct, text=f"[{info.get('status')}] {step}")
-                    status_box.caption(f"job_id={job_id} · status={info.get('status')} · {pct}%")
-
-                result = stt_poll(stt_base, job_id, progress_cb=cb)
-                progress_bar.empty()
-                status_box.empty()
-
-                if result.get("status") != "completed":
-                    st.error(f"STT 실패: {result.get('status')}")
-                    st.json(result)
-                else:
-                    st.session_state["stt_result"] = result
-                    st.session_state["stt_audio_name"] = audio_name
-                    st.session_state["stt_audio_bytes"] = audio_bytes
-                    st.success(
-                        f"완료 · {result.get('result', {}).get('processing_time', 0):.2f}초 · "
-                        f"segments {len(extract_segments(result))}개"
-                    )
-            except requests.HTTPError as e:
-                st.error(f"HTTP {e.response.status_code}: {e.response.text}")
-            except requests.RequestException as e:
-                st.error(f"요청 실패: {e}")
-            except TimeoutError as e:
-                st.error(str(e))
+            _run_stt_job(
+                stt_base, audio_name, audio_bytes,
+                language=language, diarize=diarize,
+                batch_size=int(batch), beam_size=int(beam),
+                min_sp=int(min_sp), max_sp=int(max_sp),
+                dev_mode=dev_mode,
+            )
 
         stt_result = st.session_state.get("stt_result")
         if stt_result:
@@ -872,7 +1145,7 @@ def main() -> None:
             stt_audio_bytes = st.session_state.get("stt_audio_bytes")
             stt_audio_name = st.session_state.get("stt_audio_name") or ""
             if stt_audio_bytes and segs:
-                st.markdown("### 🌊 화자별 발화 구간 (파형 오버레이)")
+                st.markdown("### 🌊 화자별 발화 구간 (파형 위에 색으로 표시)")
                 render_waveform(
                     stt_audio_bytes,
                     ext_hint=os.path.splitext(stt_audio_name)[1],
@@ -881,13 +1154,13 @@ def main() -> None:
                     height=260,
                 )
 
-            st.markdown(f"### 📋 STT 결과 — {len(df)} segments")
+            st.markdown(f"### 📋 발화 구간 표 — 총 {len(df)} 개")
             if not df.empty:
                 speakers = sorted(df["speaker"].astype(str).unique())
-                st.caption("감지된 화자 라벨: " + ", ".join(f"`{s}`" for s in speakers))
+                st.caption("감지된 화자: " + ", ".join(f"`{s}`" for s in speakers))
             st.dataframe(df, hide_index=True, use_container_width=True)
 
-            st.markdown("### 📝 합본 텍스트")
+            st.markdown("### 📝 전체 대화 텍스트")
             joined = "\n".join(
                 f"[{r['start']:.2f}–{r['end']:.2f}] ({r['speaker']}) {r['text']}"
                 for _, r in df.iterrows()
@@ -897,23 +1170,25 @@ def main() -> None:
             download_link(
                 json.dumps(stt_result, ensure_ascii=False, indent=2),
                 filename="stt_result.json",
-                label="📥 STT JSON 다운로드",
+                label="📥 결과 파일 다운로드 (JSON)",
                 mime="application/json",
             )
         else:
-            st.info("오디오 업로드 후 **STT 실행** 버튼을 눌러주세요.")
+            st.info("👆 위에서 녹음 파일을 고른 뒤 **‘말 → 글로 옮기기 시작’** 버튼을 눌러주세요.")
 
     # ===== 2) 화자 식별 =====
     with tab_sr:
         st.markdown(
-            "위에서 얻은 STT 결과(segments)와 같은 오디오를 보내, "
-            "각 발화 구간이 **사내 등록 직원** 중 누구의 목소리인지 식별합니다."
+            "위에서 얻은 **글로 옮긴 결과**와 같은 녹음을 함께 보내, "
+            "각 발화 구간이 **등록된 직원 중 누구의 목소리인지** 자동으로 찾습니다."
         )
-        threshold = st.slider(
-            "매칭 임계값 (threshold)",
-            min_value=0.0, max_value=1.0, value=0.2, step=0.05,
-            help="ERes2Net 코사인 유사도. speech_recognize 기본값 0.2. 낮을수록 관대, 높을수록 엄격.",
-        )
+
+        with st.expander("⚙️ 고급 옵션 (대부분 기본값을 그대로 두셔도 됩니다)", expanded=False):
+            threshold = st.slider(
+                "매칭 민감도 (낮을수록 관대 / 높을수록 엄격)",
+                min_value=0.0, max_value=1.0, value=0.2, step=0.05,
+                help="목소리 유사도가 이 값보다 높아야 같은 직원으로 판단합니다. 기본 0.2.",
+            )
 
         stt_result = st.session_state.get("stt_result")
         ready = stt_result is not None and (
@@ -921,12 +1196,12 @@ def main() -> None:
         )
 
         if not stt_result:
-            st.info("먼저 **1) STT 탭**에서 STT를 실행해주세요.")
+            st.info("🟡 먼저 위쪽 **'한 번에 분석'** 또는 **'말 → 글로 옮기기'** 를 먼저 실행해주세요.")
         elif audio_bytes is None and not st.session_state.get("stt_audio_bytes"):
-            st.info("오디오 파일을 다시 선택해주세요. (탭 1 결과는 보존됩니다)")
+            st.info("녹음 파일을 다시 선택해주세요. (이전 결과는 그대로 유지됩니다)")
 
         run_sr = st.button(
-            "🚀 화자 식별 실행 (STT 결과 사용)",
+            "👤  누가 말했는지 찾기",
             type="primary",
             disabled=not ready,
             key="run_sr",
@@ -934,37 +1209,10 @@ def main() -> None:
         if run_sr and ready and stt_result is not None:
             audio_name_eff = st.session_state.get("stt_audio_name") or audio_name
             audio_bytes_eff = st.session_state.get("stt_audio_bytes") or audio_bytes
-            try:
-                with st.spinner("화자 식별 요청 제출 중..."):
-                    job_id = sr_submit(
-                        sr_base, audio_name_eff, audio_bytes_eff,
-                        stt_result, threshold=threshold,
-                    )
-
-                status_box = st.empty()
-                progress_bar = st.progress(0, text=f"job_id={job_id}")
-
-                def cb(info: dict[str, Any]) -> None:
-                    pct, step = normalize_progress(info)
-                    progress_bar.progress(pct, text=f"[{info.get('status')}] {step}")
-                    status_box.caption(f"job_id={job_id} · status={info.get('status')} · {pct}%")
-
-                result = sr_poll(sr_base, job_id, progress_cb=cb)
-                progress_bar.empty()
-                status_box.empty()
-
-                if result.get("status") != "completed":
-                    st.error(f"화자 식별 실패: {result.get('status')}")
-                    st.json(result)
-                else:
-                    st.session_state["sr_result"] = result
-                    st.success("화자 식별 완료")
-            except requests.HTTPError as e:
-                st.error(f"HTTP {e.response.status_code}: {e.response.text}")
-            except requests.RequestException as e:
-                st.error(f"요청 실패: {e}")
-            except TimeoutError as e:
-                st.error(str(e))
+            _run_sr_job(
+                sr_base, audio_name_eff, audio_bytes_eff, stt_result,
+                threshold=threshold, dev_mode=dev_mode,
+            )
 
         sr_result = st.session_state.get("sr_result")
         if sr_result:
@@ -987,13 +1235,13 @@ def main() -> None:
                 matched = sorted(df_sr["matched_speaker"].astype(str).unique())
                 score_series = pd.to_numeric(df_sr["score"], errors="coerce")
                 mc1, mc2, mc3 = st.columns(3)
-                mc1.metric("매칭된 인물 수", f"{len(matched)} 명")
-                mc2.metric("Segment 수", f"{len(df_sr)}")
+                mc1.metric("찾은 사람 수", f"{len(matched)} 명")
+                mc2.metric("발화 구간 수", f"{len(df_sr)}")
                 mc3.metric(
-                    "평균 유사도",
+                    "평균 일치도",
                     f"{score_series.mean():.3f}" if score_series.notna().any() else "-",
                 )
-                st.caption("매칭된 인물: " + ", ".join(f"**{m}**" for m in matched))
+                st.caption("✅ 매칭된 인물: " + ", ".join(f"**{m}**" for m in matched))
 
             # 파형 오버레이 (화자 색 = 매칭된 직원)
             sr_audio_bytes = st.session_state.get("stt_audio_bytes")
@@ -1034,27 +1282,29 @@ def main() -> None:
                     table_df, speaker_col="matched_speaker", score_col="score",
                 )
 
-            st.markdown(f"### 👤 매칭 결과 표 — {len(table_df)} segments")
+            st.markdown(f"### 👤 발화별 매칭 결과 — 총 {len(table_df)} 구간")
             st.dataframe(table_df, hide_index=True, use_container_width=True)
 
             download_link(
                 json.dumps(sr_result, ensure_ascii=False, indent=2),
                 filename="speaker_recognition_result.json",
-                label="📥 화자 식별 JSON 다운로드",
+                label="📥 결과 파일 다운로드 (JSON)",
                 mime="application/json",
             )
         elif stt_result:
             st.caption("아직 화자 식별을 실행하지 않았습니다.")
 
-    # ===== 3) Raw JSON =====
-    with tab_raw:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown("**STT raw**")
-            st.json(st.session_state.get("stt_result") or {"message": "no data"})
-        with c2:
-            st.markdown("**Speech Recognize raw**")
-            st.json(st.session_state.get("sr_result") or {"message": "no data"})
+    # ===== 3) Raw JSON (개발자 모드일 때만 노출) =====
+    if tab_raw is not None:
+        with tab_raw:
+            st.caption("API 응답을 그대로 확인할 수 있는 개발자용 화면입니다.")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**STT raw**")
+                st.json(st.session_state.get("stt_result") or {"message": "no data"})
+            with c2:
+                st.markdown("**Speech Recognize raw**")
+                st.json(st.session_state.get("sr_result") or {"message": "no data"})
 
 
 if __name__ == "__main__":

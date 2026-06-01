@@ -166,9 +166,16 @@ def fetch_markdown(api_base: str, markdown_url: str) -> str | None:
         url = urljoin(api_base + "/", markdown_url.lstrip("/"))
         r = requests.get(url, timeout=30)
         r.raise_for_status()
-        return r.text
+        return _rewrite_static_urls(r.text, api_base)
     except requests.RequestException:
         return None
+
+
+def _rewrite_static_urls(md_text: str, api_base: str) -> str:
+    """백엔드가 markdown 안에 넣은 `/static/...` 상대경로를 API 절대 URL로 치환.
+    streamlit 도메인에서 `<img src="/static/...">` 가 broken 되는 것을 방지."""
+    base = api_base.rstrip("/")
+    return md_text.replace("](/static/", f"]({base}/static/")
 
 
 # ==========================================
