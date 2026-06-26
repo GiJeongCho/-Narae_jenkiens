@@ -14,8 +14,10 @@ PDF·DOCX·HWP·HWPX 처리 결과를 "있어보이게" 시각화한다.
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
+import zipfile
 from typing import Any
 from urllib.parse import urljoin
 
@@ -171,6 +173,45 @@ def fetch_markdown(api_base: str, markdown_url: str) -> str | None:
         return None
 
 
+def _image_url(api_base: str, img_path: Any) -> str:
+    """백엔드가 준 이미지 경로(`/static/...` 또는 절대 URL)를 실제 요청 URL로."""
+    if isinstance(img_path, str) and img_path.startswith("/"):
+        return urljoin(api_base + "/", img_path.lstrip("/"))
+    return str(img_path)
+
+
+def fetch_image_bytes(api_base: str, img_path: Any) -> bytes | None:
+    """이미지 URL에서 바이트를 받아온다. 실패 시 None."""
+    try:
+        r = requests.get(_image_url(api_base, img_path), timeout=30)
+        r.raise_for_status()
+        return r.content
+    except requests.RequestException:
+        return None
+
+
+def build_images_zip(api_base: str, image_paths: list[Any]) -> tuple[bytes, int]:
+    """여러 이미지를 받아 하나의 ZIP 바이트로 묶는다. (zip_bytes, 성공 개수) 반환."""
+    buf = io.BytesIO()
+    ok = 0
+    seen: dict[str, int] = {}
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for img_path in image_paths:
+            data = fetch_image_bytes(api_base, img_path)
+            if data is None:
+                continue
+            name = os.path.basename(str(img_path)) or "image.png"
+            if name in seen:
+                seen[name] += 1
+                root, ext = os.path.splitext(name)
+                name = f"{root}_{seen[name]}{ext}"
+            else:
+                seen[name] = 0
+            zf.writestr(name, data)
+            ok += 1
+    return buf.getvalue(), ok
+
+
 def _rewrite_static_urls(md_text: str, api_base: str) -> str:
     """백엔드가 markdown 안에 넣은 `/static/...` 상대경로를 API 절대 URL로 치환.
     streamlit 도메인에서 `<img src="/static/...">` 가 broken 되는 것을 방지."""
@@ -188,18 +229,30 @@ def download_link(
     filename: str,
     label: str,
     mime: str = "application/octet-stream",
+    large: bool = False,
 ) -> None:
     if isinstance(data, str):
         data = data.encode("utf-8")
     b64 = base64.b64encode(data).decode("ascii")
     href = f"data:{mime};base64,{b64}"
+    if large:
+        style = (
+            "display:block;width:100%;box-sizing:border-box;text-align:center;"
+            "padding:0.9rem 1.2rem;border-radius:0.6rem;"
+            "background:linear-gradient(135deg,#1E88E5,#0284C7);color:#FFFFFF;"
+            "text-decoration:none;border:none;font-size:1.05rem;font-weight:700;"
+            "box-shadow:0 4px 12px rgba(2,132,199,0.35);margin-top:8px;"
+        )
+    else:
+        style = (
+            "display:inline-block;padding:0.5rem 1rem;border-radius:0.5rem;"
+            "background:#0E1117;color:#FAFAFA;text-decoration:none;"
+            "border:1px solid #4C9AFF;font-size:0.9rem;"
+            "margin-right:8px;margin-top:4px;"
+        )
     st.markdown(
         f'''
-        <a href="{href}" download="{filename}"
-           style="display:inline-block;padding:0.5rem 1rem;border-radius:0.5rem;
-                  background:#0E1117;color:#FAFAFA;text-decoration:none;
-                  border:1px solid #4C9AFF;font-size:0.9rem;
-                  margin-right:8px; margin-top:4px;">
+        <a href="{href}" download="{filename}" style="{style}">
           {label}
         </a>
         ''',
@@ -278,6 +331,18 @@ def inject_css() -> None:
             margin-bottom: 4px;
         }
         .ocr-step-desc { font-size: 12px; color: #475569; line-height: 1.45; }
+
+        /* 다운로드/실행 버튼을 키워 잘 보이게 */
+        .stButton > button {
+            min-height: 48px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .stButton > button[kind="primary"] {
+            min-height: 56px;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -484,20 +549,46 @@ def render_page_detail(results: list[dict[str, Any]], api_base: str) -> None:
     with image_tab:
         if not images:
             st.info("이 페이지에는 이미지가 없습니다.")
-        cols_per_row = 3
-        for row_start in range(0, len(images), cols_per_row):
-            row_imgs = images[row_start : row_start + cols_per_row]
-            cols = st.columns(len(row_imgs))
-            for col, img_path in zip(cols, row_imgs):
-                url = (
-                    urljoin(api_base + "/", img_path.lstrip("/"))
-                    if isinstance(img_path, str) and img_path.startswith("/")
-                    else img_path
-                )
-                try:
-                    col.image(url, caption=os.path.basename(str(img_path)), use_container_width=True)
-                except Exception:
-                    col.markdown(f"- `{img_path}`")
+        else:
+            if st.button(
+                f"📦 이 페이지 이미지 {len(images)}개 ZIP 다운로드",
+                key=f"zip_{idx}",
+                use_container_width=True,
+            ):
+                with st.spinner("이미지 묶는 중..."):
+                    zip_bytes, ok = build_images_zip(api_base, images)
+                if ok:
+                    page_label = page.get("page_num", idx + 1)
+                    download_link(
+                        zip_bytes,
+                        filename=f"page_{page_label}_images.zip",
+                        label=f"📥 ZIP 다운로드 ({ok}개)",
+                        mime="application/zip",
+                    )
+                else:
+                    st.warning("이미지를 가져오지 못했습니다. API Base URL을 확인해주세요.")
+
+            cols_per_row = 3
+            for row_start in range(0, len(images), cols_per_row):
+                row_imgs = images[row_start : row_start + cols_per_row]
+                cols = st.columns(len(row_imgs))
+                for col, img_path in zip(cols, row_imgs):
+                    url = _image_url(api_base, img_path)
+                    fname = os.path.basename(str(img_path)) or "image.png"
+                    try:
+                        col.image(url, caption=fname, use_container_width=True)
+                    except Exception:
+                        col.markdown(f"- `{img_path}`")
+                    img_bytes = fetch_image_bytes(api_base, img_path)
+                    if img_bytes is not None:
+                        ext = os.path.splitext(fname)[1].lstrip(".").lower() or "png"
+                        with col:
+                            download_link(
+                                img_bytes,
+                                filename=fname,
+                                label="📥 다운로드",
+                                mime=f"image/{'jpeg' if ext == 'jpg' else ext}",
+                            )
 
 
 # ==========================================
@@ -612,6 +703,28 @@ def main() -> None:
 
     st.markdown("### 2️⃣ 결과 요약")
     render_kpis(resp, path)
+
+    all_images = [img for p in results for img in (p.get("images") or [])]
+    if all_images:
+        base_name = os.path.splitext(resp.get("filename", "result"))[0]
+        if st.button(
+            f"📦 전체 이미지 {len(all_images)}개 ZIP 다운로드",
+            key="zip_all",
+            type="primary",
+            use_container_width=True,
+        ):
+            with st.spinner("전체 이미지 묶는 중..."):
+                zip_bytes, ok = build_images_zip(api_base, all_images)
+            if ok:
+                download_link(
+                    zip_bytes,
+                    filename=f"{base_name}_images.zip",
+                    label=f"📥 전체 이미지 ZIP 다운로드 ({ok}개) — 클릭",
+                    mime="application/zip",
+                    large=True,
+                )
+            else:
+                st.warning("이미지를 가져오지 못했습니다. API Base URL을 확인해주세요.")
 
     render_pipeline_steps(path)
 
