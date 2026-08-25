@@ -32,9 +32,17 @@ from pydub import AudioSegment
 # ==========================================
 # 기본 설정
 # ==========================================
-DEFAULT_STT_BASE = os.getenv("STT_API_BASE", "http://localhost:5002")
-DEFAULT_SR_BASE = os.getenv("SPEECH_API_BASE", "http://localhost:6003")
-EMPLOYEE_DIR = "/home/pps-nipa/jenkins/dev/speech_recognize/src/resoursces/employee"
+DEFAULT_STT_BASE = os.getenv("STT_API_BASE", "http://localhost:8002")
+DEFAULT_SR_BASE = os.getenv("SPEECH_API_BASE", "http://localhost:8016")
+EMPLOYEE_DIR = os.getenv(
+    "EMPLOYEE_DIR",
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..", "..", "dev", "speech_recognize", "src", "resoursces", "employee",
+        )
+    ),
+)
 EXAMPLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "example_data")
 AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac", ".webm"}
 MIME_MAP = {
@@ -51,10 +59,12 @@ REQUEST_TIMEOUT = 600
 #   - stt                  : -p 5002:5002 (Whisper)
 #   - speech_recognize_dev : -p 6003:5003 (ERes2Net, 모델 마운트)
 STT_PRESETS = {
+    "local stt (:8002)": "http://localhost:8002",
     "local stt (:5002)": "http://localhost:5002",
     "external niq.kro.kr (:5002)": "http://niq.kro.kr:5002",
 }
 SR_PRESETS = {
+    "local speech_recognize (:8016)": "http://localhost:8016",
     "local speech_recognize_dev (:6003)": "http://localhost:6003",
     "external niq.kro.kr (:6003)": "http://niq.kro.kr:6003",
 }
